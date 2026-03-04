@@ -1,0 +1,49 @@
+tools:
+  - name: es-query
+    description: Execute an Elasticsearch query
+    parameters:
+      - name: query
+        type: string
+        description: The ES|QL or Query DSL query to execute
+        required: true
+      - name: index
+        type: string
+        description: Target index pattern
+        required: true
+      - name: size
+        type: number
+        description: Maximum number of results to return
+        required: false
+        default: 100
+  - name: es-indices
+    description: List available Elasticsearch indices
+    parameters:
+      - name: pattern
+        type: string
+        description: Index pattern filter (supports wildcards)
+        required: false
+        default: "*"
+
+sharedTools: []
+
+platforms:
+  cursor:
+    rules:
+      - es-query-conventions.mdc
+    commands:
+      - name: es-query
+        description: Run an ES query from the command palette
+  agent-builder:
+    skillType: EsQuerySkill
+    category: observability
+  mcp-server:
+    packageName: "@elastic/es-query-mcp"
+    serverName: es-query
+
+agentBuilder:
+  skillType: EsQuerySkill
+  category: observability
+  tags:
+    - elasticsearch
+    - search
+    - analytics

@@ -1,0 +1,54 @@
+{
+  "name": "@elastic/skill-compiler",
+  "version": "0.1.0",
+  "description": "Universal skill compiler — single canonical source to all agent platforms",
+  "type": "module",
+  "bin": {
+    "elastic-skill-compiler": "./dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./compiler": {
+      "types": "./dist/compiler/index.d.ts",
+      "default": "./dist/compiler/index.js"
+    },
+    "./generators/*": {
+      "types": "./dist/generators/*/index.d.ts",
+      "default": "./dist/generators/*/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "gray-matter": "^4.0.3",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.24.0",
+    "chalk": "^5.4.0",
+    "glob": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  },
+  "license": "Elastic-2.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "files": [
+    "dist"
+  ]
+}
