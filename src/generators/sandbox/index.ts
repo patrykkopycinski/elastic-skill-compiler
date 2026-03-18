@@ -28,9 +28,26 @@ export class SandboxGenerator implements PlatformGenerator {
       }
     }
 
+    const frontmatterBlock = [
+      '---',
+      `name: ${skill.name}`,
+      `description: >`,
+      `  ${skill.description}`,
+      ...(skill.frontmatter.metadata
+        ? [
+            'metadata:',
+            ...Object.entries(skill.frontmatter.metadata).map(
+              ([k, v]) => `  ${k}: ${v}`,
+            ),
+          ]
+        : []),
+      '---',
+      '',
+    ].join('\n');
+
     files.push({
       path: 'SKILL.md',
-      content: skill.content,
+      content: frontmatterBlock + skill.content,
     });
 
     for (const tool of ctx.resolvedTools) {
