@@ -1,0 +1,57 @@
+id: security-alert-triage
+title: Security Alert Triage
+owners:
+  - security-threat-hunting-investigations
+targets:
+  - agent-skills-sandbox
+  - kibana-agent-builder
+parity: required
+inputs:
+  - name: alert_id
+    type: string
+    description: The alert ID to triage (optional; fetches next if omitted)
+    required: false
+outputs:
+  - name: triage_result
+    type: object
+    description: Classification (benign/unknown/malicious), case ID, and acknowledgement status
+requirements:
+  - name: Fetch next untriaged alert
+    description: The skill SHALL fetch the next pending alert when no specific alert ID is provided.
+    scenarios:
+      - name: No alert ID provided
+        when: User requests alert triage without specifying an alert ID
+        then: The skill fetches the next untriaged alert and returns its details
+      - name: Specific alert ID provided
+        when: User provides a specific alert ID for triage
+        then: The skill fetches that specific alert's details
+  - name: Investigate alert context
+    description: The skill SHALL gather corroborating evidence before classification.
+    scenarios:
+      - name: Process tree investigation
+        when: An alert involves a suspicious process
+        then: The skill queries the process tree and related events
+      - name: Network investigation
+        when: An alert involves network activity
+        then: The skill queries source/destination IPs and connection patterns
+  - name: Classify and document
+    description: The skill SHALL classify the alert and create a case for true positives.
+    scenarios:
+      - name: True positive classification
+        when: Corroborating evidence confirms malicious activity
+        then: The skill classifies as malicious and creates a case with findings
+      - name: False positive classification
+        when: Investigation reveals benign activity
+        then: The skill classifies as benign with justification
+  - name: Acknowledge alerts
+    description: The skill SHALL acknowledge alerts after classification and documentation.
+    scenarios:
+      - name: Acknowledge after case creation
+        when: A case has been created for the alert
+        then: The skill acknowledges the alert and related alerts
+evalExtensions:
+  agent-skills-sandbox:
+    timeout: 120
+    retries: 2
+  kibana-agent-builder:
+    connectorId: default

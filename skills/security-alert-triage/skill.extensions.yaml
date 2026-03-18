@@ -1,0 +1,110 @@
+tools:
+  - name: fetch-next-alert
+    description: Fetch the next unacknowledged Elastic Security alert, or a specific alert by ID
+    parameters:
+      - name: alert_id
+        type: string
+        description: Specific alert ID to fetch (fetches the oldest untriaged alert when omitted)
+        required: false
+      - name: days
+        type: number
+        description: Limit search to alerts from the last N days
+        required: false
+        default: 7
+      - name: severity
+        type: string
+        description: Filter by alert severity
+        required: false
+        enum:
+          - low
+          - medium
+          - high
+          - critical
+    returns:
+      type: object
+      description: Alert details including ID, rule name, severity, host, user, process, and timestamp
+
+  - name: run-query
+    description: Run an ES|QL or KQL query against Elasticsearch for alert investigation
+    parameters:
+      - name: query
+        type: string
+        description: The ES|QL or KQL query string
+        required: true
+      - name: type
+        type: string
+        description: Query language type
+        required: false
+        default: esql
+        enum:
+          - esql
+          - kql
+      - name: index
+        type: string
+        description: Target index pattern (required for KQL, ignored for ES|QL)
+        required: false
+        default: "logs-*"
+      - name: size
+        type: number
+        description: Maximum number of results to return
+        required: false
+        default: 100
+      - name: days
+        type: number
+        description: Limit to the last N days
+        required: false
+    returns:
+      type: object
+      description: Query results as rows (ES|QL) or hits (KQL)
+
+  - name: acknowledge-alert
+    description: Acknowledge one or more Elastic Security alerts after triage
+    parameters:
+      - name: alert_id
+        type: string
+        description: Single alert ID to acknowledge
+        required: false
+      - name: agent_id
+        type: string
+        description: Agent ID for acknowledging related alerts in batch
+        required: false
+      - name: host
+        type: string
+        description: Hostname for acknowledging all alerts on a host
+        required: false
+      - name: timestamp
+        type: string
+        description: Reference timestamp for the time window (ISO 8601)
+        required: false
+      - name: window
+        type: number
+        description: Time window in minutes around the reference timestamp
+        required: false
+        default: 60
+      - name: dry_run
+        type: boolean
+        description: Preview which alerts would be acknowledged without modifying data
+        required: false
+        default: false
+    returns:
+      type: object
+      description: Count of acknowledged alerts and their IDs
+
+sharedTools: []
+
+platforms:
+  cursor:
+    rules:
+      - alert-triage-conventions.mdc
+  agent-builder:
+    skillType: AlertTriageSkill
+    category: security
+
+agentBuilder:
+  skillType: AlertTriageSkill
+  category: security
+  tags:
+    - security
+    - alert-triage
+    - soc
+    - detection

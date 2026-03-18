@@ -1,4 +1,6 @@
-export type Platform = 'cursor' | 'claude-code' | 'agent-builder' | 'mcp-server';
+export type Platform = 'cursor' | 'claude-code' | 'agent-builder' | 'mcp-server' | 'sandbox' | 'kibana-agent-builder';
+
+export type Target = 'agent-skills-sandbox' | 'kibana-agent-builder';
 
 export interface SkillFrontmatter {
   name: string;

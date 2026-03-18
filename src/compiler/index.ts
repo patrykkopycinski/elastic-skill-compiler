@@ -16,12 +16,16 @@ import { CursorGenerator } from '../generators/cursor/index.js';
 import { ClaudeCodeGenerator } from '../generators/claude-code/index.js';
 import { AgentBuilderGenerator } from '../generators/agent-builder/index.js';
 import { McpServerGenerator } from '../generators/mcp-server/index.js';
+import { SandboxGenerator } from '../generators/sandbox/index.js';
+import { KibanaAgentBuilderGenerator } from '../generators/kibana-agent-builder/index.js';
 
 const GENERATORS: Record<Platform, () => PlatformGenerator> = {
   cursor: () => new CursorGenerator(),
   'claude-code': () => new ClaudeCodeGenerator(),
   'agent-builder': () => new AgentBuilderGenerator(),
   'mcp-server': () => new McpServerGenerator(),
+  sandbox: () => new SandboxGenerator(),
+  'kibana-agent-builder': () => new KibanaAgentBuilderGenerator(),
 };
 
 export async function compile(

@@ -47,7 +47,7 @@ export async function parseSkillSource(skillDir: string): Promise<ParsedSkill> {
   const platformOverrides = new Map<Platform, string>();
   const platformsDir = join(skillDir, 'platforms');
   if (await exists(platformsDir)) {
-    for (const platform of ['cursor', 'claude-code', 'agent-builder', 'mcp-server'] as Platform[]) {
+    for (const platform of ['cursor', 'claude-code', 'agent-builder', 'mcp-server', 'sandbox', 'kibana-agent-builder'] as Platform[]) {
       const extraContentPath = join(platformsDir, platform, 'extra-content.md');
       const extraContent = await readOptional(extraContentPath);
       if (extraContent) {

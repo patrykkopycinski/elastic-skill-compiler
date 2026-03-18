@@ -1,12 +1,21 @@
 import { Command } from 'commander';
 import { resolve } from 'node:path';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import chalk from 'chalk';
 import { compile } from './compiler/index.js';
+import { validateCodeowners } from './governance/codeowners.js';
 import type { Platform } from './types.js';
 
-const ALL_PLATFORMS: Platform[] = ['cursor', 'claude-code', 'agent-builder', 'mcp-server'];
+const ALL_PLATFORMS: Platform[] = [
+  'cursor',
+  'claude-code',
+  'agent-builder',
+  'mcp-server',
+  'sandbox',
+  'kibana-agent-builder',
+];
 
 export function createCli(): Command {
   const program = new Command()
@@ -159,6 +168,107 @@ export function createCli(): Command {
 
       console.log(chalk.green(`✓ Created ${skillDir}`));
       console.log(chalk.dim('  Edit SKILL.md, AGENTS.md, and skill.extensions.yaml to configure.'));
+    });
+
+  program
+    .command('check')
+    .description('Verify generated artifacts are up to date with the canonical source')
+    .argument('<skill-dir>', 'Path to the canonical skill source directory')
+    .option(
+      '-p, --platforms <platforms>',
+      `Comma-separated platforms: ${ALL_PLATFORMS.join(', ')}`,
+      ALL_PLATFORMS.join(','),
+    )
+    .option('-o, --output <dir>', 'Directory containing existing generated artifacts', './dist-skill')
+    .option('--shared-tools <dir>', 'Path to shared tool definitions directory')
+    .action(async (skillDir: string, opts) => {
+      const platforms = parsePlatforms(opts.platforms);
+      const outputDir = resolve(opts.output);
+      const resolvedSkillDir = resolve(skillDir);
+
+      const tempDir = await mkdtemp(join(tmpdir(), 'skill-check-'));
+
+      try {
+        const result = await compile(resolvedSkillDir, {
+          platforms,
+          outputDir: tempDir,
+          sharedToolsDir: opts.sharedTools ? resolve(opts.sharedTools) : undefined,
+        });
+
+        if (result.errors.length > 0) {
+          for (const err of result.errors) {
+            console.log(chalk.red(`  ✗ ${err}`));
+          }
+          process.exit(1);
+        }
+
+        const diffs: string[] = [];
+
+        for (const genResult of result.results) {
+          for (const file of genResult.files) {
+            const generatedPath = join(tempDir, genResult.platform, file.path);
+            await mkdir(dirname(generatedPath), { recursive: true });
+            await writeFile(generatedPath, file.content, 'utf-8');
+
+            const actualPath = join(outputDir, genResult.platform, file.path);
+
+            let actual: string;
+            try {
+              actual = await readFile(actualPath, 'utf-8');
+            } catch {
+              diffs.push(actualPath);
+              continue;
+            }
+
+            if (actual !== file.content) {
+              diffs.push(actualPath);
+            }
+          }
+        }
+
+        if (diffs.length > 0) {
+          console.log(chalk.red('Artifacts out of date:'));
+          for (const d of diffs) {
+            console.log(chalk.red(`  ✗ ${d}`));
+          }
+          process.exit(1);
+        }
+
+        console.log(chalk.green('All artifacts up to date'));
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    });
+
+  program
+    .command('validate-codeowners')
+    .description('Validate CODEOWNERS has an entry for the skill directory')
+    .argument('<skill-dir>', 'Path to the canonical skill source directory')
+    .action(async (skillDir: string) => {
+      const resolvedSkillDir = resolve(skillDir);
+
+      let owners: string[];
+      try {
+        const { parseSkillRequirements } = await import('./parser/skill-requirements.js');
+        const raw = await readFile(join(resolvedSkillDir, 'skill.requirements.yaml'), 'utf-8');
+        const requirements = parseSkillRequirements(raw);
+        owners = requirements.owners;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.log(chalk.red(`✗ Failed to read skill requirements: ${message}`));
+        process.exit(1);
+      }
+
+      const result = await validateCodeowners(resolvedSkillDir, owners);
+
+      if (!result.valid) {
+        for (const error of result.errors) {
+          console.log(chalk.red(`✗ ${error}`));
+        }
+        process.exit(1);
+      }
+
+      console.log(chalk.green('✓ CODEOWNERS entry found'));
     });
 
   return program;
