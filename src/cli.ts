@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import chalk from 'chalk';
 import { compile } from './compiler/index.js';
 import { validateCodeowners } from './governance/codeowners.js';
+import { sync } from './sync.js';
+import { writeConfigTemplate, generateConfigTemplate } from './config.js';
 import type { Platform } from './types.js';
 
 const ALL_PLATFORMS: Platform[] = [
@@ -269,6 +271,119 @@ export function createCli(): Command {
       }
 
       console.log(chalk.green('✓ CODEOWNERS entry found'));
+    });
+
+  program
+    .command('sync')
+    .description('Compile and sync artifacts directly into target repos (no manual copying)')
+    .argument('<skill-dir>', 'Path to the canonical skill source directory')
+    .option('-t, --targets <targets>', 'Comma-separated targets (default: read from skill.requirements.yaml)')
+    .option('--dry-run', 'Show what would be synced without writing files')
+    .option('--pr', 'Create a git branch and open a PR in each target repo')
+    .option('--shared-tools <dir>', 'Path to shared tool definitions directory')
+    .option('-v, --verbose', 'Verbose output')
+    .action(async (skillDir: string, opts) => {
+      console.log(chalk.blue('⚙ Syncing skill to target repos...\n'));
+
+      const results = await sync({
+        skillDir: resolve(skillDir),
+        targets: opts.targets ? opts.targets.split(',').map((s: string) => s.trim()) : undefined,
+        dryRun: opts.dryRun,
+        createPr: opts.pr,
+        verbose: opts.verbose,
+        sharedToolsDir: opts.sharedTools ? resolve(opts.sharedTools) : undefined,
+      });
+
+      for (const result of results) {
+        const status = result.filesWritten.length > 0
+          ? chalk.green(`✓ ${result.target}`)
+          : chalk.dim(`○ ${result.target} (no changes)`);
+
+        console.log(`\n${status}`);
+
+        if (result.filesWritten.length > 0) {
+          console.log(chalk.dim(`  ${result.filesWritten.length} file(s) written:`));
+          for (const f of result.filesWritten) {
+            console.log(chalk.dim(`    → ${f}`));
+          }
+        }
+
+        if (result.filesUnchanged.length > 0 && opts.verbose) {
+          console.log(chalk.dim(`  ${result.filesUnchanged.length} file(s) unchanged`));
+        }
+
+        for (const w of result.warnings) {
+          console.log(chalk.yellow(`  ⚠ ${w}`));
+        }
+
+        if (result.prUrl) {
+          console.log(chalk.green(`  PR: ${result.prUrl}`));
+        }
+      }
+
+      const totalWritten = results.reduce((sum, r) => sum + r.filesWritten.length, 0);
+      const totalTargets = results.length;
+
+      if (opts.dryRun) {
+        console.log(chalk.blue(`\n[dry-run] Would write ${totalWritten} files across ${totalTargets} target(s)`));
+      } else {
+        console.log(chalk.blue(`\nDone: ${totalWritten} files synced across ${totalTargets} target(s)`));
+      }
+    });
+
+  program
+    .command('sync-check')
+    .description('Verify target repos are in sync with the canonical source (CI mode)')
+    .argument('<skill-dir>', 'Path to the canonical skill source directory')
+    .option('-t, --targets <targets>', 'Comma-separated targets (default: read from skill.requirements.yaml)')
+    .option('--shared-tools <dir>', 'Path to shared tool definitions directory')
+    .action(async (skillDir: string, opts) => {
+      console.log(chalk.blue('Checking parity across target repos...\n'));
+
+      const results = await sync({
+        skillDir: resolve(skillDir),
+        targets: opts.targets ? opts.targets.split(',').map((s: string) => s.trim()) : undefined,
+        dryRun: true,
+        verbose: false,
+        sharedToolsDir: opts.sharedTools ? resolve(opts.sharedTools) : undefined,
+      });
+
+      let hasOutOfDate = false;
+
+      for (const result of results) {
+        if (result.filesWritten.length > 0) {
+          hasOutOfDate = true;
+          console.log(chalk.red(`✗ ${result.target} — ${result.filesWritten.length} file(s) out of date:`));
+          for (const f of result.filesWritten) {
+            console.log(chalk.red(`    ${f}`));
+          }
+        } else {
+          console.log(chalk.green(`✓ ${result.target} — in sync`));
+        }
+      }
+
+      if (hasOutOfDate) {
+        console.log(chalk.red('\nRun "elastic-skill-compiler sync <skill-dir>" to fix.'));
+        process.exit(1);
+      }
+
+      console.log(chalk.green('\nAll target repos are in sync'));
+    });
+
+  program
+    .command('init-config')
+    .description('Generate a .skill-compiler.yaml template')
+    .option('-o, --output <path>', 'Output path (default: ~/.skill-compiler.yaml)')
+    .option('--stdout', 'Print to stdout instead of writing a file')
+    .action(async (opts) => {
+      if (opts.stdout) {
+        console.log(generateConfigTemplate());
+        return;
+      }
+
+      const outPath = await writeConfigTemplate(opts.output);
+      console.log(chalk.green(`✓ Config template written to ${outPath}`));
+      console.log(chalk.dim('  Edit the file to set your local repo paths.'));
     });
 
   return program;

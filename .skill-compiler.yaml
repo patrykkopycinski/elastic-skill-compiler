@@ -1,0 +1,13 @@
+targets:
+  agent-skills-sandbox:
+    repoPath: ~/Projects/agent-skills-sandbox
+    skillDir: skills/{domain}/{skill-name}
+
+  kibana-agent-builder:
+    repoPath: ~/Projects/kibana
+    skillDir: x-pack/solutions/security/plugins/security_solution/server/assistant/skills/compiled/{skill}
+
+github:
+  defaultBase: main
+  branchPrefix: skill-compiler/
+  draft: true
